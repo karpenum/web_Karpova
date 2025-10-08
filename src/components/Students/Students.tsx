@@ -4,6 +4,7 @@ import useStudents from '@/hooks/useStudents';
 import type StudentInterface from '@/types/StudentInterface';
 import styles from './Students.module.scss';
 import Student from './Student/Student';
+import AddStudent from './AddStudent/AddStudent';
 
 const Students = (): React.ReactElement => {
   const { students, deleteStudentMutate } = useStudents();
@@ -16,6 +17,7 @@ const Students = (): React.ReactElement => {
 
   return (
     <div className={styles.Students}>
+      <AddStudent />
       {students.map((student: StudentInterface) => (
         <Student
           key={student.id}

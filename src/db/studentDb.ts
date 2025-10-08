@@ -83,3 +83,39 @@ export const addRandomStudentsDb = async (amount: number = 10): Promise<FioInter
 
   return fios;
 };
+
+/**
+ * Добавление одного студента
+ */
+export const addStudentDb = async (
+  firstName: string,
+  lastName: string,
+  middleName: string,
+  groupId: number,
+): Promise<StudentInterface> => {
+  const db = new sqlite3.Database(process.env.DB ?? './db/vki-web.db');
+
+  const createdStudent = await new Promise<StudentInterface>((resolve, reject) => {
+    const insertSql = 'INSERT INTO student (firstName, lastName, middleName, groupId) VALUES (?, ?, ?, ?)';
+    db.run(insertSql, [firstName, lastName, middleName, groupId], function(err) {
+      if (err) {
+        reject(err);
+        db.close();
+        return;
+      }
+      const lastId = this.lastID as number;
+      const selectSql = 'SELECT * FROM student WHERE id = ?';
+      db.get(selectSql, [lastId], (selectErr, row) => {
+        if (selectErr) {
+          reject(selectErr);
+          db.close();
+          return;
+        }
+        resolve(row as StudentInterface);
+        db.close();
+      });
+    });
+  });
+
+  return createdStudent;
+};

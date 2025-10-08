@@ -3,12 +3,14 @@ import {
   useMutation,
   useQueryClient,
 } from '@tanstack/react-query';
-import { deleteStudentApi, getStudentsApi } from '@/api/studentsApi';
+import { addStudentApi, deleteStudentApi, getStudentsApi, type AddStudentDto } from '@/api/studentsApi';
 import type StudentInterface from '@/types/StudentInterface';
 
 interface StudentsHookInterface {
   students: StudentInterface[];
   deleteStudentMutate: (studentId: number) => void;
+  addStudentMutate: (dto: AddStudentDto, options?: { onSuccess?: () => void }) => void;
+  isAdding: boolean;
 }
 
 const useStudents = (): StudentsHookInterface => {
@@ -68,9 +70,42 @@ const useStudents = (): StudentsHookInterface => {
     // },
   });
 
+  /**
+   * Мутация добавления студента
+   */
+  const addStudentMutateInner = useMutation({
+    mutationFn: async (dto: AddStudentDto) => addStudentApi(dto),
+    onMutate: async (dto: AddStudentDto) => {
+      await queryClient.cancelQueries({ queryKey: ['students'] });
+      const previousStudents = queryClient.getQueryData<StudentInterface[]>(['students']);
+      const optimistic: StudentInterface = {
+        id: Math.floor(Math.random() * 1_000_000) * -1, // временный отрицательный id
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        middleName: dto.middleName ?? '',
+      } as unknown as StudentInterface;
+      const updated = [optimistic, ...(previousStudents ?? [])];
+      queryClient.setQueryData<StudentInterface[]>(['students'], updated);
+      return { previousStudents, optimisticId: optimistic.id };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousStudents) {
+        queryClient.setQueryData<StudentInterface[]>(['students'], context.previousStudents);
+      }
+    },
+    onSuccess: (created, variables, context) => {
+      if (!created) return;
+      const current = queryClient.getQueryData<StudentInterface[]>(['students']) ?? [];
+      const replaced = current.map((s) => (s.id === context?.optimisticId ? created : s));
+      queryClient.setQueryData<StudentInterface[]>(['students'], replaced);
+    },
+  });
+
   return {
     students: data ?? [],
     deleteStudentMutate: deleteStudentMutate.mutate,
+    addStudentMutate: addStudentMutateInner.mutate,
+    isAdding: addStudentMutateInner.isPending,
   };
 };
 
